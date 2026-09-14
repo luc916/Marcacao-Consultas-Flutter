@@ -7,13 +7,15 @@ class ConsultaCard extends StatelessWidget {
   const ConsultaCard({
     super.key,
     required this.consulta,
-    required this.onConfirmar,
-    required this.onCancelar,
+    this.onConfirmar,
+    this.onCancelar,
+    this.onVerDetalhes,
   });
 
   final Consulta consulta;
-  final VoidCallback onConfirmar;
-  final VoidCallback onCancelar;
+  final void Function(int id)? onConfirmar;
+  final void Function(int id)? onCancelar;
+  final void Function(int id)? onVerDetalhes;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +51,9 @@ class ConsultaCard extends StatelessWidget {
           ),
           _Secao(
             titulo: 'Consulta',
-            ultima: consulta.status != StatusConsulta.agendada,
+            ultima:
+                onConfirmar == null ||
+                consulta.status != StatusConsulta.agendada,
             children: [
               Text(
                 formatarData(consulta.data),
@@ -70,10 +74,19 @@ class ConsultaCard extends StatelessWidget {
               ],
             ],
           ),
-          if (consulta.status == StatusConsulta.agendada)
-            _BotoesAcao(onConfirmar: onConfirmar, onCancelar: onCancelar)
-          else
+          if (consulta.status == StatusConsulta.agendada &&
+              onConfirmar != null &&
+              onCancelar != null)
+            _BotoesAcao(
+              onConfirmar: () => onConfirmar!(consulta.id),
+              onCancelar: () => onCancelar!(consulta.id),
+            )
+          else if (consulta.status != StatusConsulta.agendada)
             _MensagemStatus(status: consulta.status),
+          if (onVerDetalhes != null) ...[
+            const SizedBox(height: 12),
+            _BotaoVerDetalhes(onPressed: () => onVerDetalhes!(consulta.id)),
+          ],
         ],
       ),
     );
@@ -162,6 +175,32 @@ class _BotoesAcao extends StatelessWidget {
           child: const Text('Cancelar', style: ConsultaCardStyles.botaoTexto),
         ),
       ],
+    );
+  }
+}
+
+class _BotaoVerDetalhes extends StatelessWidget {
+  const _BotaoVerDetalhes({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primaria,
+          side: const BorderSide(color: AppColors.primaria),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: const Text(
+          'Ver Detalhes',
+          style: ConsultaCardStyles.botaoDetalhesTexto,
+        ),
+      ),
     );
   }
 }
