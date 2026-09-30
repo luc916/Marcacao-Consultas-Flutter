@@ -5,6 +5,7 @@ import '../data/data.dart';
 import '../models/models.dart';
 import '../styles/app_colors.dart';
 import 'detalhe_consulta_screen.dart';
+import 'nova_consulta_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -53,11 +54,47 @@ class _HomeScreenState extends State<HomeScreen> {
     await ConsultaStorage.salvar(_consultas);
   }
 
+  Future<void> _abrirNovaConsulta() async {
+    final proximoId =
+        _consultas.fold<int>(
+          0,
+          (maiorId, consulta) => consulta.id > maiorId ? consulta.id : maiorId,
+        ) +
+        1;
+    final consulta = await Navigator.of(context).push<Consulta>(
+      MaterialPageRoute(
+        builder: (_) => NovaConsultaScreen(proximoId: proximoId),
+      ),
+    );
+
+    if (consulta == null || !mounted) return;
+
+    setState(() {
+      _consultas = [..._consultas, consulta];
+    });
+    await ConsultaStorage.salvar(_consultas);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Consulta agendada com sucesso!')),
+    );
+  }
+
+  Future<void> _excluirConsulta(int id) async {
+    setState(() {
+      _consultas = _consultas.where((consulta) => consulta.id != id).toList();
+    });
+    await ConsultaStorage.salvar(_consultas);
+  }
+
   void _abrirDetalhes(int id) {
     final consulta = _consultas.firstWhere((item) => item.id == id);
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => DetalheConsultaScreen(consulta: consulta),
+        builder: (_) => DetalheConsultaScreen(
+          consulta: consulta,
+          onExcluir: () => _excluirConsulta(id),
+        ),
       ),
     );
   }
@@ -66,6 +103,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.primaria,
+      floatingActionButton: FloatingActionButton.extended(
+        key: const Key('nova-consulta-button'),
+        onPressed: _abrirNovaConsulta,
+        backgroundColor: AppColors.branco,
+        foregroundColor: AppColors.primaria,
+        icon: const Icon(Icons.add),
+        label: const Text('Nova consulta'),
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -96,6 +141,13 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _carregando
                   ? const Center(
                       child: CircularProgressIndicator(color: AppColors.branco),
+                    )
+                  : _consultas.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Nenhuma consulta agendada.',
+                        style: TextStyle(color: AppColors.branco, fontSize: 18),
+                      ),
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),

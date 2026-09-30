@@ -122,4 +122,73 @@ void main() {
     expect(find.text('Cancelar'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('cadastra, persiste e exclui uma nova consulta', (tester) async {
+    tester.view.physicalSize = const Size(1200, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MarcacaoConsultasApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('nova-consulta-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Nova consulta'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('salvar-consulta-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Selecione um paciente'), findsOneWidget);
+    expect(find.text('Selecione um médico'), findsOneWidget);
+    expect(find.text('Informe um valor válido'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('paciente-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ana Souza').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('medico-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Dra. Marina Costa').last);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('valor-field')), '199,90');
+    await tester.enterText(
+      find.byKey(const Key('observacoes-field')),
+      'Consulta cadastrada na aula de 28/09',
+    );
+    await tester.tap(find.byKey(const Key('salvar-consulta-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey(4)), findsOneWidget);
+    expect(find.text('Consulta agendada com sucesso!'), findsOneWidget);
+
+    var prefs = await SharedPreferences.getInstance();
+    var salvas = jsonDecode(prefs.getString('consultas')!) as List<dynamic>;
+    expect(salvas, hasLength(4));
+    expect(salvas.last['paciente']['nome'], 'Ana Souza');
+    expect(salvas.last['valor'], 199.9);
+    expect(salvas.last['status'], 'agendada');
+
+    final verDetalhesNova = find.descendant(
+      of: find.byKey(const ValueKey(4)),
+      matching: find.text('Ver Detalhes'),
+    );
+    await tester.ensureVisible(verDetalhesNova);
+    await tester.pumpAndSettle();
+    await tester.tap(verDetalhesNova);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('excluir-consulta-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Excluir consulta?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('confirmar-exclusao-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey(4)), findsNothing);
+    prefs = await SharedPreferences.getInstance();
+    salvas = jsonDecode(prefs.getString('consultas')!) as List<dynamic>;
+    expect(salvas, hasLength(3));
+    expect(salvas.where((item) => item['id'] == 4), isEmpty);
+    expect(tester.takeException(), isNull);
+  });
 }

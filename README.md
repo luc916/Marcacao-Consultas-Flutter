@@ -1,6 +1,25 @@
 # Marcacao-Consultas-Flutter
 Aprendizado de Dart e projeto Flutter - Sistema de Marcação de Consultas
 
+## Aula de 28/09/2026 — formulário e CRUD
+
+- Formulário para cadastrar uma nova consulta.
+- Seleção de paciente, médico, data e horário.
+- Validação dos campos obrigatórios e do valor da consulta.
+- Geração automática do próximo ID.
+- Persistência da nova consulta com `shared_preferences`.
+- Exclusão com confirmação na tela de detalhes.
+- Estado vazio quando não houver consultas cadastradas.
+
+### Aula de 28/09 — formulário e CRUD
+
+1. Clique em **Nova consulta**.
+2. Tente salvar o formulário vazio e confira as mensagens de validação.
+3. Selecione paciente e médico, informe um valor, escolha data e horário e
+   salve.
+4. Atualize a página e confira que a nova consulta continua na lista.
+5. Abra **Ver Detalhes**, clique em **Excluir consulta** e confirme.
+
 ## Aula de 14/09/2026 — lista, mock e persistência local
 
 - Lista de três consultas com `ListView.separated`.
@@ -19,7 +38,7 @@ flutter run -d chrome --web-port 7357
 A porta fixa permite reencontrar o mesmo armazenamento local ao parar e iniciar
 o app no mesmo navegador. O mock só é usado quando ainda não há dados salvos.
 
-### Conferir a atividade
+### Conferir o resultado da aula
 
 1. Na primeira execução, Carlos e Ana aparecem agendados; João, confirmado.
 2. Confirme Carlos e confira que Ana continua agendada.
