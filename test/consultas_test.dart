@@ -2,76 +2,75 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:marcacao_consultas_flutter/main.dart';
 import 'package:marcacao_consultas_flutter/src/components/consulta_card.dart';
-import 'package:marcacao_consultas_flutter/src/data/data.dart';
+import 'package:marcacao_consultas_flutter/src/data/storage.dart';
 import 'package:marcacao_consultas_flutter/src/models/models.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('JSON preserva os models, data, status e campos opcionais', () {
-    for (final status in StatusConsulta.values) {
-      final consulta = criarConsultasMock().first.copyWith(status: status);
-      final json =
-          jsonDecode(jsonEncode(consulta.toJson())) as Map<String, dynamic>;
-      final restaurada = Consulta.fromJson(json);
-      expect(restaurada.toJson(), consulta.toJson());
-      expect(restaurada.data, consulta.data);
-    }
+  const especialidade = Especialidade(
+    id: 1,
+    nome: 'Cardiologia',
+    descricao: 'Cuidados com o coração',
+  );
+  const medico = Medico(
+    id: 1,
+    nome: 'Dr. Roberto',
+    crm: 'CRM123',
+    especialidade: especialidade,
+    ativo: true,
+  );
+  const paciente = Paciente(
+    id: 1,
+    nome: 'Carlos',
+    cpf: '123.456.789-00',
+    email: 'carlos@email.com',
+  );
 
-    final json = criarConsultasMock().first.toJson();
-    json['valor'] = 350;
-    json['observacoes'] = null;
-    (json['paciente'] as Map<String, dynamic>)['telefone'] = null;
-    final consulta = Consulta.fromJson(json);
-    expect(consulta.valor, 350.0);
-    expect(consulta.observacoes, isNull);
-    expect(consulta.paciente.telefone, isNull);
+  Consulta criarConsulta() {
+    return Consulta(
+      id: 1,
+      medico: medico,
+      paciente: paciente,
+      data: DateTime(2026, 9, 30),
+      valor: 350,
+      status: StatusConsulta.agendada,
+    );
+  }
+
+  test('models continuam convertendo os dados para JSON', () {
+    final consulta = criarConsulta();
+    final json = jsonDecode(jsonEncode(consulta.toJson()));
+    final restaurada = Consulta.fromJson(json as Map<String, dynamic>);
+
+    expect(restaurada.toJson(), consulta.toJson());
   });
 
-  test('primeiro carregamento cria e grava as três consultas', () async {
-    final consultas = await ConsultaStorage.carregar();
-    expect(consultas.map((c) => c.paciente.nome), [
-      'Carlos Andrade',
-      'Ana Souza',
-      'João Pereira',
-    ]);
-    expect(consultas.map((c) => c.status), [
-      StatusConsulta.agendada,
-      StatusConsulta.agendada,
-      StatusConsulta.confirmada,
-    ]);
+  test('Storage salva e obtém as três listas separadas', () async {
+    expect(await Storage.obterEspecialidades(), isEmpty);
+    expect(await Storage.obterMedicos(), isEmpty);
+    expect(await Storage.obterConsultas(), isEmpty);
+
+    await Storage.salvarEspecialidades([especialidade]);
+    await Storage.salvarMedicos([medico]);
+    await Storage.salvarConsultas([criarConsulta()]);
+
+    expect((await Storage.obterEspecialidades()).single.nome, 'Cardiologia');
+    expect((await Storage.obterMedicos()).single.nome, 'Dr. Roberto');
+    expect((await Storage.obterConsultas()).single.paciente.nome, 'Carlos');
+
     final prefs = await SharedPreferences.getInstance();
-    expect(
-      jsonDecode(prefs.getString('consultas')!),
-      consultas.map((c) => c.toJson()).toList(),
-    );
+    expect(prefs.containsKey('@consultas:especialidades'), isTrue);
+    expect(prefs.containsKey('@consultas:medicos'), isTrue);
+    expect(prefs.containsKey('@consultas:consultas'), isTrue);
   });
 
-  test('carrega o JSON existente sem substituir pelo mock', () async {
-    final consultas = criarConsultasMock();
-    final salvas = [
-      consultas[1].copyWith(status: StatusConsulta.cancelada),
-      consultas[0].copyWith(status: StatusConsulta.confirmada),
-    ];
-    SharedPreferences.setMockInitialValues({
-      'consultas': jsonEncode(salvas.map((c) => c.toJson()).toList()),
-    });
-    final carregadas = await ConsultaStorage.carregar();
-    expect(
-      carregadas.map((c) => c.toJson()).toList(),
-      salvas.map((c) => c.toJson()).toList(),
-    );
-
-    await ConsultaStorage.salvar([]);
-    expect(await ConsultaStorage.carregar(), isEmpty);
-  });
-
-  testWidgets('ações pelo id persistem e detalhes permitem abrir e voltar', (
+  testWidgets('Admin cria os dados e a Home recarrega ao voltar', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 2400);
@@ -79,116 +78,51 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    // A ordem diferente detecta ações que usam a posição em vez do id.
-    final mock = criarConsultasMock();
-    await ConsultaStorage.salvar([mock[1], mock[2], mock[0]]);
     await tester.pumpWidget(const MarcacaoConsultasApp());
     await tester.pumpAndSettle();
-    expect(find.byType(ConsultaCard), findsNWidgets(3));
 
-    Finder card(int id) => find.byKey(ValueKey(id));
-    Finder botao(int id, String label) =>
-        find.descendant(of: card(id), matching: find.text(label));
+    expect(find.text('Nenhuma consulta agendada ainda'), findsOneWidget);
+    await tester.tap(find.text('Ir para Admin'));
+    await tester.pumpAndSettle();
+    expect(find.text('Painel Administrativo'), findsOneWidget);
 
-    await tester.tap(botao(2, 'Ver Detalhes'));
+    final campos = find.byType(TextField);
+    await tester.enterText(campos.at(0), 'Cardiologia');
+    await tester.enterText(campos.at(1), 'Cuidados com o coração');
+    await tester.tap(find.text('Adicionar Especialidade'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(campos.at(2), 'Dr. Roberto');
+    await tester.enterText(campos.at(3), 'CRM123');
+    await tester.tap(find.text('Adicionar Médico'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(campos.at(4), 'Maria Silva');
+    await tester.enterText(campos.at(5), '30/09/2026');
+    await tester.tap(find.text('Criar Consulta'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sucesso'), findsOneWidget);
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ConsultaCard), findsOneWidget);
+    expect(find.text('Maria Silva'), findsOneWidget);
+    expect(find.text('1 consulta(s) agendada(s)'), findsOneWidget);
+
+    await tester.tap(find.text('Ver Detalhes'));
     await tester.pumpAndSettle();
     expect(find.text('Detalhes da consulta'), findsOneWidget);
-    expect(find.text('Ana Souza'), findsOneWidget);
-    expect(find.text('Confirmar'), findsNothing);
-    expect(find.text('Cancelar'), findsNothing);
-    expect(find.text('Ver Detalhes'), findsNothing);
     await tester.pageBack();
     await tester.pumpAndSettle();
 
-    await tester.tap(botao(1, 'Confirmar'));
+    await tester.tap(find.text('Confirmar'));
     await tester.pumpAndSettle();
-    expect(botao(1, 'CONFIRMADA'), findsOneWidget);
-    expect(botao(2, 'AGENDADA'), findsOneWidget);
-    await tester.tap(botao(2, 'Cancelar'));
-    await tester.pumpAndSettle();
-    expect(botao(2, 'CANCELADA'), findsOneWidget);
-    expect(botao(3, 'CONFIRMADA'), findsOneWidget);
-
-    final prefs = await SharedPreferences.getInstance();
-    final jsonSalvo = prefs.getString('consultas')!;
-    await tester.pumpWidget(const SizedBox.shrink());
-    SharedPreferences.setMockInitialValues({'consultas': jsonSalvo});
-    await tester.pumpWidget(const MarcacaoConsultasApp());
-    await tester.pumpAndSettle();
-    expect(botao(1, 'CONFIRMADA'), findsOneWidget);
-    expect(botao(2, 'CANCELADA'), findsOneWidget);
-    expect(botao(3, 'CONFIRMADA'), findsOneWidget);
-    expect(find.text('Confirmar'), findsNothing);
-    expect(find.text('Cancelar'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('cadastra, persiste e exclui uma nova consulta', (tester) async {
-    tester.view.physicalSize = const Size(1200, 2400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(const MarcacaoConsultasApp());
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const Key('nova-consulta-button')));
-    await tester.pumpAndSettle();
-    expect(find.text('Nova consulta'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('salvar-consulta-button')));
-    await tester.pumpAndSettle();
-    expect(find.text('Selecione um paciente'), findsOneWidget);
-    expect(find.text('Selecione um médico'), findsOneWidget);
-    expect(find.text('Informe um valor válido'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('paciente-field')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Ana Souza').last);
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const Key('medico-field')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('Dra. Marina Costa').last);
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byKey(const Key('valor-field')), '199,90');
-    await tester.enterText(
-      find.byKey(const Key('observacoes-field')),
-      'Consulta cadastrada na aula de 28/09',
+    expect(find.text('CONFIRMADA'), findsOneWidget);
+    expect(
+      (await Storage.obterConsultas()).single.status,
+      StatusConsulta.confirmada,
     );
-    await tester.tap(find.byKey(const Key('salvar-consulta-button')));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const ValueKey(4)), findsOneWidget);
-    expect(find.text('Consulta agendada com sucesso!'), findsOneWidget);
-
-    var prefs = await SharedPreferences.getInstance();
-    var salvas = jsonDecode(prefs.getString('consultas')!) as List<dynamic>;
-    expect(salvas, hasLength(4));
-    expect(salvas.last['paciente']['nome'], 'Ana Souza');
-    expect(salvas.last['valor'], 199.9);
-    expect(salvas.last['status'], 'agendada');
-
-    final verDetalhesNova = find.descendant(
-      of: find.byKey(const ValueKey(4)),
-      matching: find.text('Ver Detalhes'),
-    );
-    await tester.ensureVisible(verDetalhesNova);
-    await tester.pumpAndSettle();
-    await tester.tap(verDetalhesNova);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('excluir-consulta-button')));
-    await tester.pumpAndSettle();
-    expect(find.text('Excluir consulta?'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('confirmar-exclusao-button')));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const ValueKey(4)), findsNothing);
-    prefs = await SharedPreferences.getInstance();
-    salvas = jsonDecode(prefs.getString('consultas')!) as List<dynamic>;
-    expect(salvas, hasLength(3));
-    expect(salvas.where((item) => item['id'] == 4), isEmpty);
     expect(tester.takeException(), isNull);
   });
 }

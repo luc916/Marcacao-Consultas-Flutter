@@ -1,24 +1,23 @@
 # Marcacao-Consultas-Flutter
 Aprendizado de Dart e projeto Flutter - Sistema de Marcação de Consultas
 
-## Aula de 28/09/2026 — formulário e CRUD
+## Aula de 28/09/2026 — arrays, service layer e navegação
 
-- Formulário para cadastrar uma nova consulta.
-- Seleção de paciente, médico, data e horário.
-- Validação dos campos obrigatórios e do valor da consulta.
-- Geração automática do próximo ID.
-- Persistência da nova consulta com `shared_preferences`.
-- Exclusão com confirmação na tela de detalhes.
-- Estado vazio quando não houver consultas cadastradas.
+- Três listas separadas no `shared_preferences`: especialidades, médicos e
+  consultas.
+- Leitura e gravação centralizadas na classe `Storage`.
+- Rotas nomeadas para Home, Admin e detalhes.
+- Tela Admin para cadastrar especialidade, médico e consulta de teste.
+- Home vazia quando ainda não há consultas salvas.
+- Recarregamento da Home ao voltar do Admin.
 
-### Aula de 28/09 — formulário e CRUD
+###  Aula 28/09/2026 — arrays, service layer e navegação
 
-1. Clique em **Nova consulta**.
-2. Tente salvar o formulário vazio e confira as mensagens de validação.
-3. Selecione paciente e médico, informe um valor, escolha data e horário e
-   salve.
-4. Atualize a página e confira que a nova consulta continua na lista.
-5. Abra **Ver Detalhes**, clique em **Excluir consulta** e confirme.
+1. Abra o **Painel Administrativo**.
+2. Cadastre uma especialidade e depois um médico.
+3. Informe o paciente e a data no formato `DD/MM/AAAA`.
+4. Crie a consulta e volte para a Home.
+5. Confira a consulta, abra os detalhes e teste confirmar ou cancelar.
 
 ## Aula de 14/09/2026 — lista, mock e persistência local
 
@@ -38,7 +37,7 @@ flutter run -d chrome --web-port 7357
 A porta fixa permite reencontrar o mesmo armazenamento local ao parar e iniciar
 o app no mesmo navegador. O mock só é usado quando ainda não há dados salvos.
 
-### Conferir o resultado da aula
+### Conferir a aula 28/09/2026 — arrays, service layer e navegação
 
 1. Na primeira execução, Carlos e Ana aparecem agendados; João, confirmado.
 2. Confirme Carlos e confira que Ana continua agendada.

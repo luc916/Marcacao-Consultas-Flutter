@@ -12,4 +12,7 @@ class AppColors {
   static const Color bordaSecao = Color(0xFFE0E0E0);
   static const Color fundoMensagemSucesso = Color(0xFFE8F5E9);
   static const Color fundoMensagemErro = Color(0xFFFFEBEE);
+  static const Color fundoTela = Color(0xFFF5F5F5);
+  static const Color fundoInput = Color(0xFFF5F5F5);
+  static const Color bordaInput = Color(0xFFDDDDDD);
 }

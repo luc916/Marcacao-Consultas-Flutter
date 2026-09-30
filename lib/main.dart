@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'src/models/models.dart';
+import 'src/routes/app_routes.dart';
 import 'src/screens/screens.dart';
 import 'src/styles/app_colors.dart';
 
@@ -19,7 +21,27 @@ class MarcacaoConsultasApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primaria),
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      initialRoute: AppRoutes.home,
+      routes: {
+        AppRoutes.home: (_) => const HomeScreen(),
+        AppRoutes.admin: (_) => const AdminScreen(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == AppRoutes.detalhe) {
+          final consulta = settings.arguments;
+          if (consulta is! Consulta) {
+            return MaterialPageRoute(
+              builder: (_) => const HomeScreen(),
+              settings: settings,
+            );
+          }
+          return MaterialPageRoute(
+            builder: (_) => DetalheConsultaScreen(consulta: consulta),
+            settings: settings,
+          );
+        }
+        return null;
+      },
     );
   }
 }
